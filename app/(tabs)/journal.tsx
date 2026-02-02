@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   },
   fabContainer: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 90 : 70,
+    bottom: Platform.OS === "ios" ? 110 : 90,
     right: liquidGlass.spacing.comfortable,
     zIndex: 1000,
   },

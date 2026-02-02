@@ -88,7 +88,7 @@ export default function QuickJournalFAB() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 100 : 80,
+    bottom: Platform.OS === "ios" ? 150 : 130,
     right: liquidGlass.spacing.breathe,
     zIndex: 1000,
   },

@@ -221,14 +221,14 @@ export default function NewPostScreen() {
             >
               New Vibe
             </Text>
-            <View style={{ width: 48 }} />
+            <View style={{ width: 36 }} />
           </BlurView>
         )}
 
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={styles.keyboardView}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 20 : 0}
         >
           <ScrollView
             contentContainerStyle={styles.content}

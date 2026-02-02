@@ -64,7 +64,7 @@ export default function CreatePostFAB() {
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 90 : 70,
+    bottom: Platform.OS === "ios" ? 110 : 90,
     right: liquidGlass.spacing.comfortable,
     zIndex: 1000,
   },
