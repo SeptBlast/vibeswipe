@@ -60,7 +60,7 @@ export default function RegisterScreen() {
             { merge: true },
           );
 
-          router.replace("/(tabs)");
+          router.replace("/terms-agreement");
         })
         .catch((err) => setError(err.message))
         .finally(() => setLoading(false));
@@ -88,7 +88,7 @@ export default function RegisterScreen() {
         createdAt: Date.now(),
       });
 
-      router.replace("/(tabs)");
+      router.replace("/terms-agreement");
     } catch (err: any) {
       setError(err.message);
     } finally {

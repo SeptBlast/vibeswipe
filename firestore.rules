@@ -19,6 +19,11 @@ service cloud.firestore {
       allow update: if isAuthenticated() && isOwner(userId);
       // Delete typically handled by admin functions or careful client logic
       allow delete: if isAuthenticated() && isOwner(userId);
+      
+      // Blocked users subcollection
+      match /blockedUsers/{blockedUserId} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
     }
 
     // --- Journals Collection ---
@@ -54,6 +59,19 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Reports Collection ---
+    // Users can report objectionable content
+    match /reports/{reportId} {
+      // Only authenticated users can create reports
+      allow create: if isAuthenticated() 
+                    && request.resource.data.reporterId == request.auth.uid
+                    && request.resource.data.status == "pending";
+      // Users can read their own reports
+      allow read: if isAuthenticated() && resource.data.reporterId == request.auth.uid;
+      // Only admins can update/delete (implement admin check in app)
+      allow update, delete: if false; // Admin only via Cloud Functions
     }
 
     // --- Chats & Messages ---

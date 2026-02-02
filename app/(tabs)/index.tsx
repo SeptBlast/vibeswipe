@@ -46,8 +46,23 @@ export default function WallScreen() {
   const [commentsMap, setCommentsMap] = useState<{
     [postId: string]: Comment[];
   }>({});
+  const [blockedUserIds, setBlockedUserIds] = useState<string[]>([]);
   const { user } = useAuth(); // Assuming AuthContext exposes user
   const router = useRouter();
+
+  // Fetch blocked users
+  const fetchBlockedUsers = async () => {
+    if (!user) return;
+    try {
+      const blockedSnapshot = await getDocs(
+        collection(db, CollectionNames.USERS, user.uid, "blockedUsers"),
+      );
+      const blockedIds = blockedSnapshot.docs.map((doc) => doc.id);
+      setBlockedUserIds(blockedIds);
+    } catch (error) {
+      console.error("Error fetching blocked users:", error);
+    }
+  };
 
   const fetchPosts = async () => {
     if (!user) return; // Guard against unauthenticated fetch
@@ -57,41 +72,14 @@ export default function WallScreen() {
         orderBy("createdAt", "desc"),
       );
       const snapshot = await getDocs(q);
-      const fetchedPosts = snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          createdAt:
-            data.createdAt instanceof Timestamp
-              ? data.createdAt.toMillis()
-              : data.createdAt || Date.now(),
-          reactions: data.reactions || 0,
-          commentCount: data.commentCount || 0,
-          likedBy: data.likedBy || [],
-        };
-      }) as Post[];
-      setPosts(fetchedPosts);
-    } catch (error) {
-      console.error("Error fetching posts:", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!user) return;
-    fetchPosts();
-    // Optional: Real-time listener
-    const unsubscribe = onSnapshot(
-      query(
-        collection(db, CollectionNames.POSTS),
-        orderBy("createdAt", "desc"),
-      ),
-      (snapshot) => {
-        const fetchedPosts = snapshot.docs.map((doc) => {
+      const fetchedPosts = snapshot.docs
+        .map((doc) => {
           const data = doc.data();
+          // Validate required fields
+          if (!data.userId || !doc.id) {
+            console.warn("Skipping invalid post:", doc.id, data);
+            return null;
+          }
           return {
             id: doc.id,
             ...data,
@@ -103,13 +91,65 @@ export default function WallScreen() {
             commentCount: data.commentCount || 0,
             likedBy: data.likedBy || [],
           };
-        }) as Post[];
-        setPosts(fetchedPosts);
+        })
+        .filter((post) => post !== null) as Post[];
+
+      // Filter out posts from blocked users
+      const filteredPosts = fetchedPosts.filter(
+        (post) => !blockedUserIds.includes(post.userId),
+      );
+      setPosts(filteredPosts);
+    } catch (error) {
+      console.error("Error fetching posts:", error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    fetchBlockedUsers();
+    fetchPosts();
+    // Optional: Real-time listener
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, CollectionNames.POSTS),
+        orderBy("createdAt", "desc"),
+      ),
+      (snapshot) => {
+        const fetchedPosts = snapshot.docs
+          .map((doc) => {
+            const data = doc.data();
+            // Validate required fields
+            if (!data.userId || !doc.id) {
+              console.warn("Skipping invalid post in realtime:", doc.id, data);
+              return null;
+            }
+            return {
+              id: doc.id,
+              ...data,
+              createdAt:
+                data.createdAt instanceof Timestamp
+                  ? data.createdAt.toMillis()
+                  : data.createdAt || Date.now(),
+              reactions: data.reactions || 0,
+              commentCount: data.commentCount || 0,
+              likedBy: data.likedBy || [],
+            };
+          })
+          .filter((post) => post !== null) as Post[];
+
+        // Filter out posts from blocked users
+        const filteredPosts = fetchedPosts.filter(
+          (post) => !blockedUserIds.includes(post.userId),
+        );
+        setPosts(filteredPosts);
         setLoading(false);
       },
     );
     return () => unsubscribe();
-  }, [user]);
+  }, [user, blockedUserIds]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -284,7 +324,7 @@ export default function WallScreen() {
         )}
 
         <FlatList
-          data={posts}
+          data={posts.filter((post) => post && post.id && post.userId)}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
             <PostCard

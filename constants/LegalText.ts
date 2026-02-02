@@ -1,5 +1,5 @@
 export const LegalText = {
-    PRIVACY_POLICY: `
+  PRIVACY_POLICY: `
 # Privacy Policy
 
 **Effective Date:** January 1, 2026
@@ -28,7 +28,7 @@ We use administrative, technical, and physical security measures to help protect
 If you have questions or comments about this Privacy Policy, please contact us at support@vibeswipe.startupmanch.world.
     `,
 
-    EULA: `
+  EULA: `
 # End-User License Agreement (EULA)
 
 **Last Updated:** January 1, 2026
@@ -43,17 +43,46 @@ You agree not to, and you will not permit others to:
 - License, sell, rent, lease, assign, distribute, transmit, host, outsource, disclose, or otherwise commercially exploit the Application.
 - Modify, make derivative works of, disassemble, decrypt, reverse compile, or reverse engineer any part of the Application.
 
-## 3. User Content
-You represent and warrant that you own or have the necessary licenses, rights, consents, and permissions to your User Content. You agree not to post content that is defamatory, obscene, pornographic, offensive, hateful, or otherwise violates any law or infringes the rights of any third party.
+## 3. Zero Tolerance for Objectionable Content
+VibeSwipe maintains a strict zero-tolerance policy for objectionable content and abusive behavior. By using this Application, you explicitly agree that:
 
-## 4. Termination
-This Agreement is effective until terminated by you or VibeSwipe. Your rights under this Agreement will terminate automatically without notice if you fail to comply with any of its terms.
+**Prohibited Content:** You will NOT post, share, or transmit any content that:
+- Contains hate speech, harassment, bullying, or threats toward any individual or group
+- Is sexually explicit, pornographic, or contains nudity
+- Promotes violence, self-harm, or dangerous activities
+- Contains spam, fraudulent schemes, or deceptive practices
+- Infringes on intellectual property rights or violates privacy
+- Is defamatory, obscene, or otherwise offensive
+- Exploits or endangers minors in any way
+- Promotes illegal activities or substances
 
-## 5. No Warranties
+**Immediate Consequences:** Violation of this policy will result in:
+- Immediate removal of the offending content
+- Suspension or permanent ban of your account
+- Notification to appropriate authorities if illegal activity is suspected
+- No refund of any fees paid
+
+**User Responsibility:** You are solely responsible for all content you create, post, or share through the Application. You must report any objectionable content or abusive behavior you encounter immediately using the in-app reporting tools.
+
+## 4. User Content Ownership and License
+You represent and warrant that you own or have the necessary licenses, rights, consents, and permissions to your User Content. By posting content, you grant VibeSwipe a limited license to display and distribute your content solely for the purpose of operating the Application.
+
+## 5. Content Moderation and Reporting
+VibeSwipe provides tools for users to:
+- **Report objectionable content:** Flag any content that violates our policies
+- **Block abusive users:** Prevent abusive users from contacting you or seeing your content
+- **Request content removal:** Report content for immediate review
+
+**Response Commitment:** We commit to reviewing all content reports within 24 hours and taking appropriate action. Reported users will be notified of actions taken, and repeat offenders will face permanent account suspension.
+
+## 6. Termination
+This Agreement is effective until terminated by you or VibeSwipe. Your rights under this Agreement will terminate automatically without notice if you fail to comply with any of its terms. VibeSwipe reserves the right to suspend or terminate accounts that violate these terms without prior warning.
+
+## 7. No Warranties
 The Application is provided to you "AS IS" and "AS AVAILABLE" and with all faults and defects without warranty of any kind.
     `,
 
-    GDPR: `
+  GDPR: `
 # GDPR Compliance
 
 **VibeSwipe is committed to GDPR compliance.**
@@ -69,5 +98,5 @@ Under the General Data Protection Regulation (GDPR), you have the following righ
 
 ## How to Exercise Your Rights
 To exercise any of these rights, please use the "Delete Account" button in settings or contact our Data Protection Officer at support@vibeswipe.startupmanch.world.
-    `
+    `,
 };

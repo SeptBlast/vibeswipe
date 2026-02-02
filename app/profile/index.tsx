@@ -1,4 +1,6 @@
+import { AvatarPicker } from "@/components/AvatarPicker";
 import GlassView from "@/components/GlassView";
+import { MultiAvatar } from "@/components/MultiAvatar";
 import GlassButton from "@/components/ui/GlassButton";
 import { db } from "@/configs/firebaseConfig";
 import { CollectionNames } from "@/constants/AppEnums";
@@ -13,7 +15,6 @@ import React, { useEffect, useState } from "react";
 import { Alert, Platform, ScrollView, StyleSheet, View } from "react-native";
 import {
   Appbar,
-  Avatar,
   IconButton,
   List,
   Switch,
@@ -37,6 +38,8 @@ export default function ProfileScreen() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [anonymousAlias, setAnonymousAlias] = useState("");
   const [showAlias, setShowAlias] = useState(false);
+  const [photoURL, setPhotoURL] = useState<string | null>(null);
+  const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,6 +56,7 @@ export default function ProfileScreen() {
         setIsAnonymous(data.isAnonymousProfile || false);
         setAnonymousAlias(data.anonymousAlias || "");
         setShowAlias(data.showAlias || false);
+        setPhotoURL(data.photoURL || null);
       }
     } catch (e) {
       console.error(e);
@@ -66,6 +70,16 @@ export default function ProfileScreen() {
     const docRef = doc(db, CollectionNames.USERS, user.uid);
     // Use setDoc with merge: true to handle case where document doesn't exist yet
     await setDoc(docRef, { [field]: value }, { merge: true });
+  };
+
+  const handleRemovePhoto = async () => {
+    await updateProfile("photoURL", null);
+    setPhotoURL(null);
+  };
+
+  const handleUploadCustomPhoto = async (photoURL: string) => {
+    await updateProfile("photoURL", photoURL);
+    setPhotoURL(photoURL);
   };
 
   const handleSignOut = async () => {
@@ -126,21 +140,26 @@ export default function ProfileScreen() {
               Your Identity
             </Text>
             <View style={styles.identityContent}>
-              <Avatar.Text
-                label={
-                  isAnonymous && anonymousAlias
-                    ? anonymousAlias.substring(0, 2).toUpperCase()
-                    : user?.email?.substring(0, 2).toUpperCase() || "US"
-                }
-                size={80}
-                style={{
-                  alignSelf: "center",
-                  backgroundColor: isAnonymous
-                    ? theme.colors.tertiary
-                    : theme.colors.primary,
-                  marginBottom: liquidGlass.spacing.cozy,
-                }}
-              />
+              <View style={styles.avatarContainer}>
+                <MultiAvatar
+                  userId={user?.uid || ""}
+                  photoURL={photoURL}
+                  size={80}
+                  style={{
+                    alignSelf: "center",
+                    marginBottom: liquidGlass.spacing.cozy,
+                  }}
+                />
+                <IconButton
+                  icon="camera"
+                  size={20}
+                  mode="contained"
+                  containerColor={theme.colors.primaryContainer}
+                  iconColor={theme.colors.onPrimaryContainer}
+                  style={styles.cameraButton}
+                  onPress={() => setAvatarPickerVisible(true)}
+                />
+              </View>
               {isAnonymous && anonymousAlias ? (
                 <View style={styles.anonymousIdentity}>
                   <Text
@@ -186,7 +205,7 @@ export default function ProfileScreen() {
                       { color: theme.colors.onSurface },
                     ]}
                   >
-                    {user?.anonymousAlias || "User"}
+                    {anonymousAlias || "User"}
                   </Text>
                   <Text
                     variant="bodyMedium"
@@ -553,6 +572,14 @@ export default function ProfileScreen() {
           </View>
         </ScrollView>
       </SafeAreaView>
+      <AvatarPicker
+        visible={avatarPickerVisible}
+        onDismiss={() => setAvatarPickerVisible(false)}
+        currentPhotoURL={photoURL}
+        onRemovePhoto={handleRemovePhoto}
+        onUploadCustomPhoto={handleUploadCustomPhoto}
+        userId={user?.uid || ""}
+      />
     </View>
   );
 }
@@ -599,6 +626,15 @@ const styles = StyleSheet.create({
   },
   identityContent: {
     alignItems: "center",
+  },
+  avatarContainer: {
+    position: "relative",
+    alignSelf: "center",
+  },
+  cameraButton: {
+    position: "absolute",
+    bottom: 0,
+    right: -8,
   },
   identityName: {
     fontWeight: "600",

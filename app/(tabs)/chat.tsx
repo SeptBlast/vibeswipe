@@ -1,3 +1,4 @@
+import { MultiAvatar } from "@/components/MultiAvatar";
 import GlassCard from "@/components/ui/GlassCard";
 import { db } from "@/configs/firebaseConfig";
 import { liquidGlass } from "@/constants/theme";
@@ -45,6 +46,8 @@ interface ChatRoom {
   name?: string; // For groups
   otherUserName?: string; // For 1:1 chats
   otherUserAlias?: string; // For 1:1 chats
+  otherUserPhotoURL?: string; // For 1:1 chats
+  otherUserId?: string; // For 1:1 chats
 }
 
 // Separate component for chat item to use hooks properly
@@ -55,6 +58,7 @@ interface ChatItemProps {
 
 function ChatItem({ item, onPress }: ChatItemProps) {
   const theme = useTheme();
+  const { user } = useAuth();
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePressIn = () => {
@@ -86,14 +90,26 @@ function ChatItem({ item, onPress }: ChatItemProps) {
       >
         <GlassCard intensity="medium">
           <View style={styles.chatRow}>
-            <Avatar.Icon
-              icon={item.type === "group" ? "account-group" : "account"}
-              size={48}
-              style={[
-                styles.avatar,
-                { backgroundColor: theme.colors.primaryContainer },
-              ]}
-            />
+            {item.type === "group" ? (
+              <Avatar.Icon
+                icon="account-group"
+                size={48}
+                style={[
+                  styles.avatar,
+                  { backgroundColor: theme.colors.primaryContainer },
+                ]}
+              />
+            ) : (
+              <MultiAvatar
+                userId={
+                  item.otherUserId ||
+                  item.participants.find((id) => id !== user?.uid) ||
+                  ""
+                }
+                photoURL={item.otherUserPhotoURL}
+                size={48}
+              />
+            )}
             <View style={styles.chatContent}>
               <View style={styles.chatHeader}>
                 <Text
@@ -169,8 +185,10 @@ export default function ChatListScreen() {
                   const userData = userDoc.data();
                   return {
                     ...chat,
+                    otherUserId,
                     otherUserName: userData.anonymousAlias || "User",
                     otherUserAlias: userData.anonymousAlias || "User",
+                    otherUserPhotoURL: userData.photoURL || null,
                   };
                 }
               } catch (error) {

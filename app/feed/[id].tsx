@@ -1,4 +1,5 @@
 import GlassView from "@/components/GlassView";
+import { MultiAvatar } from "@/components/MultiAvatar";
 import PostCard from "@/components/PostCard";
 import { db } from "@/configs/firebaseConfig";
 import { CollectionNames } from "@/constants/AppEnums";
@@ -31,7 +32,6 @@ import {
 } from "react-native";
 import {
   ActivityIndicator,
-  Avatar,
   IconButton,
   Text,
   TextInput,
@@ -45,6 +45,7 @@ export default function PostDetailsScreen() {
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState("");
   const [loading, setLoading] = useState(true);
+  const [userPhotos, setUserPhotos] = useState<Record<string, string>>({});
   const { user } = useAuth();
   const router = useRouter();
   const theme = useTheme();
@@ -71,12 +72,30 @@ export default function PostDetailsScreen() {
     const commentsRef = collection(db, CollectionNames.POSTS, id, "comments");
     const qComments = query(commentsRef, orderBy("createdAt", "desc"));
 
-    const unsubComments = onSnapshot(qComments, (snapshot) => {
+    const unsubComments = onSnapshot(qComments, async (snapshot) => {
       const fetchedComments = snapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       })) as Comment[];
       setComments(fetchedComments);
+
+      // Fetch user photos for comment authors
+      const userIds = [...new Set(fetchedComments.map((c) => c.userId))];
+      const photos: Record<string, string> = {};
+      for (const userId of userIds) {
+        try {
+          const userDoc = await getDoc(doc(db, "users", userId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.photoURL) {
+              photos[userId] = userData.photoURL;
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching user photo:", error);
+        }
+      }
+      setUserPhotos(photos);
       setLoading(false);
     });
 
@@ -93,12 +112,12 @@ export default function PostDetailsScreen() {
       // Fetch user's anonymousAlias
       const userDoc = await getDoc(doc(db, "users", user.uid));
       const userAlias = userDoc.exists()
-        ? userDoc.data()?.anonymousAlias || user.anonymousAlias || "User"
-        : user.anonymousAlias || "User";
+        ? userDoc.data()?.anonymousAlias || "User"
+        : "User";
 
       const commentData = {
         userId: user.uid,
-        anonymousAlias: user.anonymousAlias || userAlias,
+        anonymousAlias: userAlias,
         text: newComment.trim(),
         createdAt: Date.now(),
       };
@@ -223,14 +242,11 @@ export default function PostDetailsScreen() {
                   marginBottom: 5,
                 }}
               >
-                <Avatar.Text
+                <MultiAvatar
+                  userId={item.userId}
+                  photoURL={userPhotos[item.userId]}
                   size={30}
-                  label={item.anonymousAlias.substring(0, 2).toUpperCase()}
-                  style={{
-                    backgroundColor: theme.colors.secondary,
-                    marginRight: 10,
-                  }}
-                  color="#fff"
+                  style={{ marginRight: 10 }}
                 />
                 <View>
                   <Text style={{ color: "#fff", fontWeight: "bold" }}>

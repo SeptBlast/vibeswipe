@@ -6,6 +6,7 @@ import { liquidGlass } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { MOODS, MoodType } from "@/types/journal";
 import { MOOD_VALUES } from "@/utils/moodStats";
+import { Filter } from "bad-words";
 import { format } from "date-fns";
 import {
   AudioPlayer,
@@ -202,6 +203,17 @@ export default function NewJournalScreen() {
     if (!note.trim() && !audioUri) {
       alert("Please add a note or audio recording");
       return;
+    }
+
+    // Check for profanity in note
+    if (note.trim()) {
+      const filter = new Filter();
+      if (filter.isProfane(note)) {
+        alert(
+          "Your journal entry contains inappropriate language. Please revise your content to comply with our community guidelines.",
+        );
+        return;
+      }
     }
 
     setLoading(true);

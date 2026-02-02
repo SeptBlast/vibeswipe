@@ -5,6 +5,7 @@ import { liquidGlass } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { PostType } from "@/types/feed";
 import { MOODS, MoodType } from "@/types/journal";
+import { Filter } from "bad-words";
 import { BlurView } from "expo-blur";
 import * as ImagePicker from "expo-image-picker";
 import { Stack, useRouter } from "expo-router";
@@ -135,6 +136,18 @@ export default function NewPostScreen() {
         "Please add some text or media to your vibe.",
       );
       return;
+    }
+
+    // Check for profanity
+    if (content.trim()) {
+      const filter = new Filter();
+      if (filter.isProfane(content)) {
+        Alert.alert(
+          "Content Warning",
+          "Your post contains inappropriate language. Please revise your content to comply with our community guidelines.",
+        );
+        return;
+      }
     }
 
     setLoading(true);

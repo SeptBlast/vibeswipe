@@ -1,4 +1,5 @@
 import GlassView from "@/components/GlassView";
+import { MultiAvatar } from "@/components/MultiAvatar";
 import { db } from "@/configs/firebaseConfig";
 import { liquidGlass } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,7 +28,6 @@ import {
 } from "react-native";
 import {
   Appbar,
-  Avatar,
   IconButton,
   Text,
   TextInput,
@@ -54,6 +54,10 @@ export default function ChatRoomScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState("");
   const [otherUserName, setOtherUserName] = useState("Chat");
+  const [otherUserId, setOtherUserId] = useState<string | null>(null);
+  const [otherUserPhotoURL, setOtherUserPhotoURL] = useState<string | null>(
+    null,
+  );
   const flatListRef = useRef<FlatList>(null);
 
   useEffect(() => {
@@ -69,10 +73,12 @@ export default function ChatRoomScreen() {
             (uid: string) => uid !== user.uid,
           );
           if (otherUserId) {
+            setOtherUserId(otherUserId);
             const userDoc = await getDoc(doc(db, "users", otherUserId));
             if (userDoc.exists()) {
               const userData = userDoc.data();
               setOtherUserName(userData.anonymousAlias || "User");
+              setOtherUserPhotoURL(userData.photoURL || null);
             }
           }
         }
@@ -193,14 +199,11 @@ export default function ChatRoomScreen() {
                   isMe ? styles.myMessageRow : styles.theirMessageRow,
                 ]}
               >
-                {!isMe && (
-                  <Avatar.Text
+                {!isMe && otherUserId && (
+                  <MultiAvatar
+                    userId={otherUserId}
+                    photoURL={otherUserPhotoURL}
                     size={36}
-                    label={item.senderId.substring(0, 2).toUpperCase()}
-                    style={[
-                      styles.avatar,
-                      { backgroundColor: theme.colors.secondaryContainer },
-                    ]}
                   />
                 )}
                 <GlassView

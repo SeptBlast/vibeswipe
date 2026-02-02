@@ -1,3 +1,4 @@
+import { MultiAvatar } from "@/components/MultiAvatar";
 import GlassButton from "@/components/ui/GlassButton";
 import GlassCard from "@/components/ui/GlassCard";
 import { db } from "@/configs/firebaseConfig";
@@ -36,6 +37,7 @@ interface UserProfile {
   averageMood: number;
   lastMood: string;
   isAnonymousProfile: boolean;
+  photoURL?: string;
 }
 
 // Separate component for suggestion card to use hooks properly
@@ -85,14 +87,18 @@ function SuggestionCard({
     >
       <GlassCard intensity="medium">
         <View style={styles.profileSection}>
-          <Avatar.Icon
-            icon={item.isAnonymousProfile ? "incognito" : "account"}
-            size={56}
-            style={[
-              styles.avatar,
-              { backgroundColor: getMoodColor(item.averageMood) },
-            ]}
-          />
+          {item.isAnonymousProfile ? (
+            <Avatar.Icon
+              icon="incognito"
+              size={56}
+              style={[
+                styles.avatar,
+                { backgroundColor: getMoodColor(item.averageMood) },
+              ]}
+            />
+          ) : (
+            <MultiAvatar userId={item.uid} photoURL={item.photoURL} size={56} />
+          )}
           <View style={styles.profileInfo}>
             <Text
               variant="titleMedium"
