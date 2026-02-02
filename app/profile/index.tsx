@@ -570,6 +570,19 @@ export default function ProfileScreen() {
               Log Out
             </GlassButton>
           </View>
+
+          {/* App Version */}
+          <View style={styles.versionContainer}>
+            <Text
+              variant="labelSmall"
+              style={[
+                styles.versionText,
+                { color: theme.colors.onSurfaceVariant },
+              ]}
+            >
+              Version 1.0.0
+            </Text>
+          </View>
         </ScrollView>
       </SafeAreaView>
       <AvatarPicker
@@ -681,9 +694,18 @@ const styles = StyleSheet.create({
   },
   signOutContainer: {
     marginTop: liquidGlass.spacing.comfortable,
-    marginBottom: liquidGlass.spacing.breathe,
+    marginBottom: liquidGlass.spacing.comfortable,
   },
   signOutButton: {
     width: "100%",
+  },
+  versionContainer: {
+    alignItems: "center",
+    paddingVertical: liquidGlass.spacing.cozy,
+    marginBottom: liquidGlass.spacing.breathe,
+  },
+  versionText: {
+    opacity: 0.6,
+    fontSize: 12,
   },
 });

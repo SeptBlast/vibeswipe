@@ -1,11 +1,15 @@
 import GlassView from "@/components/GlassView";
 import { LegalText } from "@/constants/LegalText";
-import { LinearGradient } from "expo-linear-gradient";
+import { liquidGlass } from "@/constants/theme";
+import { BlurView } from "expo-blur";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import React from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Button, IconButton, Text, useTheme } from "react-native-paper";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { Platform, ScrollView, StyleSheet, View } from "react-native";
+import { Appbar, IconButton, Text, useTheme } from "react-native-paper";
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from "react-native-safe-area-context";
 
 export default function LegalScreen() {
   const { type } = useLocalSearchParams<{ type: string }>();
@@ -29,47 +33,65 @@ export default function LegalScreen() {
   const { title, content } = getContent();
 
   return (
-    <LinearGradient
-      colors={["#4c669f", "#3b5998", "#192f6a"]}
-      style={styles.container}
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
     >
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={styles.container} edges={["top"]}>
-        <View style={[styles.header, { paddingTop: insets.top }]}>
-          <IconButton
-            icon="arrow-left"
-            size={24}
-            onPress={() => router.back()}
-            iconColor="#fff"
-          />
-        </View>
-        <GlassView style={styles.glassContainer} intensity="medium">
-          <Text variant="headlineMedium" style={styles.title}>
-            {title}
-          </Text>
-          <ScrollView
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
+        {/* Header - Material Design 3 on Android, Liquid Glass on iOS */}
+        {Platform.OS === "android" ? (
+          <Appbar.Header
+            elevated
+            style={{ backgroundColor: theme.colors.surface }}
+          >
+            <Appbar.BackAction onPress={() => router.back()} />
+            <Appbar.Content title={title} titleStyle={{ fontWeight: "600" }} />
+          </Appbar.Header>
+        ) : (
+          <BlurView
+            intensity={liquidGlass[theme.dark ? "dark" : "light"].blur.medium}
+            tint={theme.dark ? "dark" : "light"}
+            style={[
+              styles.floatingHeader,
+              { paddingTop: insets.top + liquidGlass.spacing.cozy },
+            ]}
+          >
+            <IconButton
+              icon="arrow-left"
+              size={24}
+              iconColor={theme.colors.onSurface}
+              onPress={() => router.back()}
+            />
+            <Text
+              variant="titleLarge"
+              style={[styles.headerTitle, { color: theme.colors.onSurface }]}
+            >
+              {title}
+            </Text>
+            <View style={{ width: 48 }} />
+          </BlurView>
+        )}
+
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <GlassView
+            variant="card"
+            intensity="medium"
+            style={styles.contentCard}
           >
             <Text
               variant="bodyMedium"
-              style={{ color: "#eee", lineHeight: 24 }}
+              style={[styles.contentText, { color: theme.colors.onSurface }]}
             >
               {content}
             </Text>
-            <View style={{ height: 50 }} />
-          </ScrollView>
-          <Button
-            mode="outlined"
-            onPress={() => router.back()}
-            textColor="#fff"
-            style={{ borderColor: "#fff" }}
-          >
-            Close
-          </Button>
-        </GlassView>
+          </GlassView>
+        </ScrollView>
       </SafeAreaView>
-    </LinearGradient>
+    </View>
   );
 }
 
@@ -77,23 +99,32 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 8,
+  floatingHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: liquidGlass.spacing.cozy,
+    paddingBottom: liquidGlass.spacing.cozy,
+    borderBottomWidth: Platform.OS === "ios" ? 0.5 : 0,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
-  glassContainer: {
+  headerTitle: {
+    fontWeight: "600",
     flex: 1,
-    margin: 16,
-    padding: 20,
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  title: {
-    color: "#fff",
-    fontWeight: "bold",
-    marginBottom: 16,
     textAlign: "center",
   },
   scrollView: {
-    marginBottom: 20,
+    flex: 1,
+  },
+  scrollContent: {
+    padding: liquidGlass.spacing.comfortable,
+    paddingBottom: liquidGlass.spacing.breathe,
+  },
+  contentCard: {
+    padding: liquidGlass.spacing.comfortable,
+  },
+  contentText: {
+    lineHeight: 24,
+    letterSpacing: 0.2,
   },
 });
