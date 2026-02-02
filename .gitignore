@@ -48,6 +48,3 @@ app-example
 # generated native folders
 /ios
 /android
-
-**/GoogleService-Info.plist
-**/google-services.json
