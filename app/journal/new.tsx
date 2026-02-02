@@ -1,27 +1,28 @@
 import GlassView from "@/components/GlassView";
-import MoodSelector from "@/components/MoodSelector";
 import GlassButton from "@/components/ui/GlassButton";
 import { db, storage } from "@/configs/firebaseConfig";
 import { CollectionNames } from "@/constants/AppEnums";
 import { liquidGlass } from "@/constants/theme";
 import { useAuth } from "@/contexts/AuthContext";
-import { MoodType } from "@/types/journal";
+import { MOODS, MoodType } from "@/types/journal";
 import { MOOD_VALUES } from "@/utils/moodStats";
 import { format } from "date-fns";
 import {
+  AudioPlayer,
   RecordingPresets,
   requestRecordingPermissionsAsync,
   setAudioModeAsync,
-  useAudioPlayer,
   useAudioRecorder,
   useAudioRecorderState,
 } from "expo-audio";
 import { BlurView } from "expo-blur";
+import { File } from "expo-file-system";
 import { Stack, useRouter } from "expo-router";
 import { addDoc, collection, doc, getDoc, setDoc } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -30,9 +31,9 @@ import {
   View,
 } from "react-native";
 import {
+  ActivityIndicator,
   Appbar,
   IconButton,
-  Switch,
   Text,
   TextInput,
   useTheme,
@@ -48,33 +49,39 @@ export default function NewJournalScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
 
-  const [mood, setMood] = useState<MoodType | null>(null);
+  const [mood, setMood] = useState<MoodType>("happy");
   const [note, setNote] = useState("");
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
   const [audioUri, setAudioUri] = useState<string | null>(null);
   const [audioDuration, setAudioDuration] = useState<number>(0);
   const [isRecording, setIsRecording] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [recordingStartTime, setRecordingStartTime] = useState<number>(0);
+
+  const successOpacity = useRef(new Animated.Value(0)).current;
+  const successScale = useRef(new Animated.Value(0.5)).current;
 
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
-  const player = useAudioPlayer(audioUri || undefined);
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Initialize audio mode on component mount
+  // Initialize audio mode once on mount
   useEffect(() => {
-    const initAudioMode = async () => {
+    const initAudio = async () => {
       try {
         await setAudioModeAsync({
           allowsRecording: true,
           playsInSilentMode: true,
-          //   staysActiveInBackground: false,
         });
       } catch (error) {
-        console.error("Failed to initialize audio mode", error);
+        // Silently ignore - we'll try again when recording starts
+        console.log("Audio mode will be initialized on first recording");
       }
     };
-
-    initAudioMode();
+    initAudio();
   }, []);
 
   const startRecording = async () => {
@@ -86,9 +93,19 @@ export default function NewJournalScreen() {
         return;
       }
 
-      // Prepare the recorder before starting recording
-      await recorder.prepareToRecordAsync();
+      // Ensure audio mode is set (in case mount initialization failed)
+      try {
+        await setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+      } catch (e) {
+        // Continue anyway - recorder might still work
+      }
+
+      // Start recording
       await recorder.record();
+      setRecordingStartTime(Date.now());
       setIsRecording(true);
     } catch (error) {
       console.error("Failed to start recording", error);
@@ -99,13 +116,20 @@ export default function NewJournalScreen() {
   const stopRecording = async () => {
     try {
       await recorder.stop();
-      const uri = recorder.uri;
-      const duration = recorderState.durationMillis;
+      const uri = recorder.uri; // It's a property, not a method
+
+      // Calculate duration manually from start time
+      const recordingEndTime = Date.now();
+      const durationMs = recordingEndTime - recordingStartTime;
+      const duration = Math.floor(durationMs / 1000);
 
       if (uri) {
         setAudioUri(uri);
-        // Duration is in milliseconds, convert to seconds
-        setAudioDuration(Math.floor(duration / 1000));
+        setAudioDuration(
+          duration > 0
+            ? duration
+            : Math.floor(recorderState.durationMillis / 1000),
+        );
       }
 
       setIsRecording(false);
@@ -115,35 +139,66 @@ export default function NewJournalScreen() {
     }
   };
 
-  const playAudio = () => {
+  const playAudio = async () => {
     try {
-      player.play();
+      if (!audioUri) return;
+
+      if (isPlaying && playerRef.current) {
+        playerRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        // Create player if it doesn't exist
+        if (!playerRef.current) {
+          playerRef.current = new AudioPlayer(audioUri);
+        }
+
+        playerRef.current.play();
+        setIsPlaying(true);
+      }
     } catch (error) {
       console.error("Failed to play audio", error);
+      setIsPlaying(false);
     }
   };
 
   const uploadAudio = async (uri: string) => {
-    const response = await fetch(uri);
-    const blob = await response.blob();
+    if (!user) throw new Error("No user logged in");
 
-    const filename = `${Date.now()}.m4a`;
-    const storageRef = ref(storage, `journal_audio/${user?.uid}/${filename}`);
+    try {
+      // Create a File instance - it implements Blob interface
+      const file = new File(uri);
 
-    await uploadBytes(storageRef, blob);
-    const downloadURL = await getDownloadURL(storageRef);
+      const filename = `${Date.now()}.m4a`;
+      const storageRef = ref(storage, `journal_audio/${user.uid}/${filename}`);
 
-    return downloadURL;
+      // Upload with explicit metadata for content type validation
+      const metadata = {
+        contentType: "audio/m4a",
+      };
+
+      await uploadBytes(storageRef, file, metadata);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      return downloadURL;
+    } catch (error) {
+      console.error("Upload audio error:", error);
+      throw error;
+    }
   };
 
   const deleteAudio = () => {
-    player.pause();
+    if (playerRef.current) {
+      playerRef.current.pause();
+      playerRef.current.remove();
+      playerRef.current = null;
+    }
+    setIsPlaying(false);
     setAudioUri(null);
     setAudioDuration(0);
   };
 
   const handleSave = async () => {
-    if (!user || !mood) return;
+    if (!user) return;
     if (!note.trim() && !audioUri) {
       alert("Please add a note or audio recording");
       return;
@@ -154,7 +209,9 @@ export default function NewJournalScreen() {
       let audioUrl: string | undefined;
 
       if (audioUri) {
+        setIsUploading(true);
         audioUrl = await uploadAudio(audioUri);
+        setIsUploading(false);
       }
 
       // 1. Add Journal Entry
@@ -162,8 +219,8 @@ export default function NewJournalScreen() {
         userId: user.uid,
         mood,
         note,
-        audioUrl,
-        audioDuration,
+        ...(audioUrl && { audioUrl }), // Only include if audioUrl exists
+        ...(audioUrl && { audioDuration }), // Only include if audio was recorded
         isAnonymous,
         createdAt: Date.now(),
         dateString: format(new Date(), "yyyy-MM-dd"),
@@ -193,19 +250,37 @@ export default function NewJournalScreen() {
           averageMood: avgMood,
           moodHistory: newHistory,
           lastActive: Date.now(),
-          isAnonymousProfile: isAnonymous, // user preference from journal? or global setting?
-          // user requirements said "person should have access to toggle if he want to be annonymous or not"
-          // assuming this is a global profile setting, but updating here for freshness
+          isAnonymousProfile: isAnonymous,
         },
         { merge: true },
       );
 
-      router.back();
+      // Show success animation
+      setShowSuccess(true);
+      Animated.parallel([
+        Animated.timing(successOpacity, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.spring(successScale, {
+          toValue: 1,
+          friction: 8,
+          tension: 40,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      // Navigate back after animation
+      setTimeout(() => {
+        router.back();
+      }, 1200);
     } catch (error) {
       console.error("Error saving journal:", error);
       alert("Failed to save entry");
     } finally {
       setLoading(false);
+      setIsUploading(false);
     }
   };
 
@@ -237,7 +312,7 @@ export default function NewJournalScreen() {
               style={styles.backButton}
             />
             <Text
-              variant="titleMedium"
+              variant="titleLarge"
               style={[styles.headerTitle, { color: theme.colors.onSurface }]}
             >
               New Journal Entry
@@ -253,98 +328,79 @@ export default function NewJournalScreen() {
         >
           <ScrollView
             contentContainerStyle={styles.content}
-            showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <GlassView variant="card" intensity="medium" style={styles.section}>
-              <Text
-                variant="titleMedium"
-                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-              >
-                How are you feeling?
-              </Text>
-              <MoodSelector selectedMood={mood} onSelect={setMood} />
-            </GlassView>
-
-            <GlassView variant="card" intensity="medium" style={styles.section}>
-              <Text
-                variant="titleMedium"
-                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-              >
-                Write your thoughts...
-              </Text>
+            {/* Main Input Card */}
+            <GlassView
+              variant="card"
+              intensity="medium"
+              style={styles.mainCard}
+            >
               <TextInput
                 mode="outlined"
-                multiline
-                numberOfLines={8}
-                placeholder="Today I feel..."
+                placeholder="How's your day going? Write your thoughts..."
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 value={note}
                 onChangeText={setNote}
                 style={[
                   styles.input,
                   {
-                    backgroundColor: theme.colors.surface,
+                    backgroundColor: "transparent",
                     color: theme.colors.onSurface,
                   },
                 ]}
+                multiline
+                autoFocus
                 outlineColor="transparent"
-                activeOutlineColor={theme.colors.primary}
+                activeOutlineColor="transparent"
               />
-            </GlassView>
 
-            <GlassView variant="card" intensity="medium" style={styles.section}>
-              <Text
-                variant="titleMedium"
-                style={[styles.sectionTitle, { color: theme.colors.onSurface }]}
-              >
-                Or record an audio note
-              </Text>
-
+              {/* Audio Recording Section */}
               {!audioUri ? (
-                <View style={styles.audioControls}>
+                <View style={styles.audioSection}>
                   {!isRecording ? (
                     <Pressable
                       onPress={startRecording}
                       style={[
-                        styles.audioButton,
+                        styles.recordButton,
                         {
-                          backgroundColor: theme.colors.surfaceVariant,
-                          borderRadius: liquidGlass.corners.medium,
+                          backgroundColor: "rgba(255, 255, 255, 0.05)",
                         },
                       ]}
                     >
                       <IconButton
                         icon="microphone"
-                        size={24}
+                        size={20}
                         iconColor={theme.colors.primary}
+                        style={{ margin: 0 }}
                       />
                       <Text
-                        variant="labelLarge"
-                        style={{ color: theme.colors.onSurface }}
+                        variant="labelMedium"
+                        style={{ color: theme.colors.onSurfaceVariant }}
                       >
-                        Start Recording
+                        Record Audio Note
                       </Text>
                     </Pressable>
                   ) : (
                     <Pressable
                       onPress={stopRecording}
                       style={[
-                        styles.audioButton,
+                        styles.recordButton,
                         {
-                          backgroundColor: theme.colors.primary,
-                          borderRadius: liquidGlass.corners.medium,
+                          backgroundColor: theme.colors.errorContainer,
                         },
                       ]}
                     >
                       <IconButton
                         icon="stop-circle"
-                        size={24}
-                        iconColor={theme.colors.onPrimary}
+                        size={20}
+                        iconColor={theme.colors.error}
+                        style={{ margin: 0 }}
                       />
                       <Text
-                        variant="labelLarge"
-                        style={{ color: theme.colors.onPrimary }}
+                        variant="labelMedium"
+                        style={{ color: theme.colors.error }}
                       >
                         Stop Recording
                       </Text>
@@ -356,8 +412,9 @@ export default function NewJournalScreen() {
                   <View style={styles.audioInfo}>
                     <IconButton
                       icon="music-note"
-                      size={32}
+                      size={24}
                       iconColor={theme.colors.primary}
+                      style={{ margin: 0 }}
                     />
                     <View style={styles.audioDetails}>
                       <Text
@@ -376,46 +433,179 @@ export default function NewJournalScreen() {
                   </View>
                   <View style={styles.audioActions}>
                     <IconButton
-                      icon={player.playing ? "pause" : "play"}
-                      size={24}
+                      icon={isPlaying ? "pause" : "play"}
+                      size={20}
                       iconColor={theme.colors.primary}
                       onPress={playAudio}
                     />
                     <IconButton
                       icon="delete"
-                      size={24}
+                      size={20}
                       iconColor={theme.colors.error}
                       onPress={deleteAudio}
                     />
                   </View>
                 </View>
               )}
-            </GlassView>
 
-            <GlassView variant="card" intensity="medium" style={styles.section}>
-              <View style={styles.row}>
+              {isUploading && (
+                <View style={styles.uploadingContainer}>
+                  <ActivityIndicator
+                    size="small"
+                    color={theme.colors.primary}
+                  />
+                  <Text
+                    variant="bodySmall"
+                    style={{
+                      color: theme.colors.onSurfaceVariant,
+                      marginLeft: 8,
+                    }}
+                  >
+                    Uploading audio...
+                  </Text>
+                </View>
+              )}
+
+              {/* Compact Mood Selector */}
+              <View style={styles.compactMoodRow}>
                 <Text
-                  variant="bodyLarge"
-                  style={{ color: theme.colors.onSurface }}
+                  variant="labelMedium"
+                  style={{ color: theme.colors.onSurfaceVariant }}
                 >
-                  Post Anonymously?
+                  Mood
                 </Text>
-                <Switch value={isAnonymous} onValueChange={setIsAnonymous} />
+                <View style={styles.compactMoodButtons}>
+                  {(Object.keys(MOODS) as MoodType[]).map((moodKey) => (
+                    <Pressable
+                      key={moodKey}
+                      onPress={() => setMood(moodKey)}
+                      style={[
+                        styles.compactMoodButton,
+                        {
+                          backgroundColor:
+                            mood === moodKey
+                              ? theme.colors.primaryContainer
+                              : "transparent",
+                        },
+                      ]}
+                    >
+                      <IconButton
+                        icon={MOODS[moodKey].icon}
+                        size={18}
+                        iconColor={
+                          mood === moodKey
+                            ? theme.colors.primary
+                            : theme.colors.onSurfaceVariant
+                        }
+                        style={{ margin: 0 }}
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+              </View>
+
+              {/* Bottom Action Bar */}
+              <View style={styles.actionBar}>
+                <View style={styles.actionButtons}>
+                  <Pressable
+                    onPress={() => setIsAnonymous(!isAnonymous)}
+                    style={[
+                      styles.anonymousButton,
+                      {
+                        backgroundColor: isAnonymous
+                          ? theme.colors.tertiaryContainer
+                          : "transparent",
+                      },
+                    ]}
+                  >
+                    <IconButton
+                      icon="incognito"
+                      size={18}
+                      iconColor={
+                        isAnonymous
+                          ? theme.colors.tertiary
+                          : theme.colors.onSurfaceVariant
+                      }
+                      style={{ margin: 0 }}
+                    />
+                  </Pressable>
+                  <Text
+                    variant="labelSmall"
+                    style={{
+                      color: isAnonymous
+                        ? theme.colors.tertiary
+                        : theme.colors.onSurfaceVariant,
+                    }}
+                  >
+                    {isAnonymous ? "Anonymous" : "Public"}
+                  </Text>
+                </View>
+
+                <GlassButton
+                  variant="primary"
+                  onPress={handleSave}
+                  disabled={
+                    (!note.trim() && !audioUri) || loading || isUploading
+                  }
+                  style={styles.saveButton}
+                >
+                  {loading ? "Saving..." : "Save"}
+                </GlassButton>
               </View>
             </GlassView>
-
-            <View style={styles.buttonContainer}>
-              <GlassButton
-                variant="primary"
-                onPress={handleSave}
-                disabled={!mood || loading}
-                style={styles.saveButton}
-              >
-                {loading ? "Saving..." : "Save Entry"}
-              </GlassButton>
-            </View>
           </ScrollView>
         </KeyboardAvoidingView>
+
+        {/* Success Animation Overlay */}
+        {showSuccess && (
+          <Animated.View
+            style={[
+              styles.successOverlay,
+              {
+                opacity: successOpacity,
+                backgroundColor: theme.colors.background,
+              },
+            ]}
+          >
+            <Animated.View
+              style={[
+                styles.successContent,
+                {
+                  transform: [{ scale: successScale }],
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.successIcon,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+              >
+                <IconButton
+                  icon="check"
+                  size={48}
+                  iconColor="#fff"
+                  style={{ margin: 0 }}
+                />
+              </View>
+              <Text
+                variant="headlineSmall"
+                style={[
+                  styles.successText,
+                  { color: theme.colors.onBackground },
+                ]}
+              >
+                Entry Saved!
+              </Text>
+              <Text
+                variant="bodyMedium"
+                style={{ color: theme.colors.onSurfaceVariant }}
+              >
+                Your journal entry has been saved
+              </Text>
+            </Animated.View>
+          </Animated.View>
+        )}
       </SafeAreaView>
     </View>
   );
@@ -451,41 +641,35 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: liquidGlass.spacing.comfortable,
-    paddingTop: 90,
+    paddingTop: Platform.OS === "ios" ? 90 : 8,
     paddingBottom: liquidGlass.spacing.breathe * 2,
   },
-  section: {
-    marginBottom: liquidGlass.spacing.comfortable,
-  },
-  sectionTitle: {
-    marginBottom: liquidGlass.spacing.cozy,
-    fontWeight: "600",
+  mainCard: {
+    padding: liquidGlass.spacing.comfortable,
   },
   input: {
-    minHeight: 150,
+    minHeight: 120,
     borderRadius: liquidGlass.corners.medium,
     textAlignVertical: "top",
+    fontSize: 16,
+    lineHeight: 24,
   },
-  row: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  audioSection: {
+    marginTop: liquidGlass.spacing.cozy,
   },
-  audioControls: {
-    alignItems: "center",
-  },
-  audioButton: {
-    width: "100%",
+  recordButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    padding: liquidGlass.spacing.cozy,
+    borderRadius: liquidGlass.corners.medium,
     gap: liquidGlass.spacing.intimate,
-    padding: liquidGlass.spacing.comfortable,
   },
   audioPreview: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: liquidGlass.spacing.cozy,
     padding: liquidGlass.spacing.cozy,
     backgroundColor: "rgba(255, 255, 255, 0.05)",
     borderRadius: liquidGlass.corners.medium,
@@ -494,6 +678,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    gap: liquidGlass.spacing.intimate,
   },
   audioDetails: {
     flex: 1,
@@ -502,10 +687,84 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  buttonContainer: {
-    marginTop: liquidGlass.spacing.comfortable,
+  uploadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: liquidGlass.spacing.cozy,
+    padding: liquidGlass.spacing.cozy,
+    borderRadius: liquidGlass.corners.small,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  compactMoodRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: liquidGlass.spacing.cozy,
+    marginTop: liquidGlass.spacing.cozy,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  compactMoodButtons: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  compactMoodButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  actionBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingTop: liquidGlass.spacing.cozy,
+    marginTop: liquidGlass.spacing.cozy,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255, 255, 255, 0.1)",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: liquidGlass.spacing.intimate,
+  },
+  anonymousButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: "center",
+    alignItems: "center",
   },
   saveButton: {
-    width: "100%",
+    paddingHorizontal: liquidGlass.spacing.comfortable,
+    paddingVertical: liquidGlass.spacing.intimate,
+    minWidth: 100,
+  },
+  successOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1000,
+  },
+  successContent: {
+    alignItems: "center",
+    gap: liquidGlass.spacing.cozy,
+  },
+  successIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: liquidGlass.spacing.intimate,
+  },
+  successText: {
+    fontWeight: "700",
+    textAlign: "center",
   },
 });

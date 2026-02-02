@@ -162,17 +162,6 @@ export default function LoginScreen() {
                 >
                   Sign in with Google
                 </Button>
-
-                <Link href="/login/phone" asChild>
-                  <Button
-                    mode="outlined"
-                    style={styles.socialButton}
-                    icon="phone"
-                    textColor={theme.colors.onSurface}
-                  >
-                    Login with Phone
-                  </Button>
-                </Link>
               </GlassView>
 
               <Link href="/register" asChild>

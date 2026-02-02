@@ -73,7 +73,7 @@ export default function NewPostScreen() {
     }
   };
 
-  const pickImage = async () => {
+  const pickMedia = async () => {
     try {
       const permissionResult =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -81,54 +81,33 @@ export default function NewPostScreen() {
       if (permissionResult.granted === false) {
         Alert.alert(
           "Permission Required",
-          "Please allow access to your photo library to upload images.",
+          "Please allow access to your photo library to upload media.",
         );
         return;
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images", "videos"],
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
+        videoMaxDuration: 60,
       });
 
       if (!result.canceled && result.assets[0]) {
-        setMediaUri(result.assets[0].uri);
-        setMediaType("image");
+        const asset = result.assets[0];
+        setMediaUri(asset.uri);
+
+        // Automatically detect type based on the asset
+        if (asset.type === "video") {
+          setMediaType("video");
+        } else {
+          setMediaType("image");
+        }
       }
     } catch (error) {
-      console.error("Error picking image:", error);
-      Alert.alert("Error", "Failed to pick image.");
-    }
-  };
-
-  const pickVideo = async () => {
-    try {
-      const permissionResult =
-        await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-      if (permissionResult.granted === false) {
-        Alert.alert(
-          "Permission Required",
-          "Please allow access to your photo library to upload videos.",
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-        allowsEditing: true,
-        quality: 0.8,
-      });
-
-      if (!result.canceled && result.assets[0]) {
-        setMediaUri(result.assets[0].uri);
-        setMediaType("video");
-      }
-    } catch (error) {
-      console.error("Error picking video:", error);
-      Alert.alert("Error", "Failed to pick video.");
+      console.error("Error picking media:", error);
+      Alert.alert("Error", "Failed to pick media.");
     }
   };
 
@@ -237,7 +216,7 @@ export default function NewPostScreen() {
               style={styles.backButton}
             />
             <Text
-              variant="titleMedium"
+              variant="titleLarge"
               style={[styles.headerTitle, { color: theme.colors.onSurface }]}
             >
               New Vibe
@@ -378,25 +357,14 @@ export default function NewPostScreen() {
               <View style={styles.actionBar}>
                 <View style={styles.actionButtons}>
                   <IconButton
-                    icon="image"
+                    icon="attachment"
                     size={22}
                     iconColor={
-                      mediaType === "image"
+                      mediaUri
                         ? theme.colors.primary
                         : theme.colors.onSurfaceVariant
                     }
-                    onPress={pickImage}
-                    disabled={isUploading}
-                  />
-                  <IconButton
-                    icon="video"
-                    size={22}
-                    iconColor={
-                      mediaType === "video"
-                        ? theme.colors.primary
-                        : theme.colors.onSurfaceVariant
-                    }
-                    onPress={pickVideo}
+                    onPress={pickMedia}
                     disabled={isUploading}
                   />
                   <Pressable

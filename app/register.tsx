@@ -4,7 +4,7 @@ import { auth, db, googleWebClientId } from "@/configs/firebaseConfig";
 import { CollectionNames } from "@/constants/AppEnums";
 import { liquidGlass } from "@/constants/theme";
 import * as Google from "expo-auth-session/providers/google";
-import { Link, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import {
   createUserWithEmailAndPassword,
@@ -193,17 +193,6 @@ export default function RegisterScreen() {
                 >
                   Sign up with Google
                 </Button>
-
-                <Link href="/login/phone" asChild>
-                  <Button
-                    mode="outlined"
-                    style={styles.socialButton}
-                    icon="phone"
-                    textColor={theme.colors.onSurface}
-                  >
-                    Continue with Phone
-                  </Button>
-                </Link>
               </GlassView>
 
               <Button
