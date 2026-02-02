@@ -1,0 +1,77 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Helper function to validate file size (10MB max)
+    function validFileSize() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Helper function to validate image types
+    function validImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // Helper function to validate video types
+    function validVideoType() {
+      return request.resource.contentType.matches('video/.*');
+    }
+    
+    // Helper function to validate audio types
+    function validAudioType() {
+      return request.resource.contentType.matches('audio/.*');
+    }
+    
+    // Post media (images and videos)
+    // Path: post_media/{userId}/{filename}
+    match /post_media/{userId}/{filename} {
+      // Allow authenticated users to upload their own media
+      allow create: if isAuthenticated() 
+                    && isOwner(userId)
+                    && validFileSize()
+                    && (validImageType() || validVideoType());
+      
+      // Allow anyone to read (posts are public)
+      allow read: if true;
+      
+      // Allow owners to delete their own media
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // Profile pictures
+    // Path: profile_pictures/{userId}/{filename}
+    match /profile_pictures/{userId}/{filename} {
+      allow create, update: if isAuthenticated() 
+                            && isOwner(userId)
+                            && validFileSize()
+                            && validImageType();
+      allow read: if true;
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+    
+    // Journal audio
+    // Path: journal_audio/{userId}/{filename}
+    match /journal_audio/{userId}/{filename} {
+      allow create: if isAuthenticated() 
+                    && isOwner(userId)
+                    && validFileSize()
+                    && validAudioType();
+      
+      // Only owner can read their journal audio (private)
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Allow owners to delete their own audio
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+  }
+}

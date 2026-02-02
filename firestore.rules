@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // --- Users Collection ---
+    // Public read (for connecting), but only owner can update specific fields (managed by app logic mostly)
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && isOwner(userId);
+      // Delete typically handled by admin functions or careful client logic
+      allow delete: if isAuthenticated() && isOwner(userId);
+    }
+
+    // --- Journals Collection ---
+    // Strictly private. Only the creator can read/write.
+    match /journals/{entryId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Posts Collection (The Wall) ---
+    // Public read. Owner write.
+    // --- Posts Collection (The Wall) ---
+    // Public read. Owner write (create/delete). Public update (for likes/comments).
+    match /posts/{postId} {
+      allow read: if isAuthenticated();
+      // Allow create if the userId matches the authenticated user
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      // Allow update for likes/comments (authenticated users)
+      // Note: Ideally we'd validate only specific fields are changed, but for MVP this is okay
+      allow update: if isAuthenticated();
+      // Only owner can delete
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      
+      // Allow access to comments subcollection
+      match /comments/{commentId} {
+        allow read, create: if isAuthenticated();
+      }
+    }
+
+    // --- Comments Collection ---
+    // Top-level comments collection for posts
+    match /comments/{commentId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+
+    // --- Chats & Messages ---
+    // Only participants can read/write.
+    match /chats/{chatId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated() && request.auth.uid in resource.data.participants;
+      allow update: if isAuthenticated() && request.auth.uid in resource.data.participants;
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+        allow create: if isAuthenticated() && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants;
+      }
+    }
+  }
+}
