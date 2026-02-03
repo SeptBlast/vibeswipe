@@ -25,7 +25,7 @@ We do not sell, trade, or rent your personal identification information to other
 We use administrative, technical, and physical security measures to help protect your personal information. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable.
 
 ## 6. Contact Us
-If you have questions or comments about this Privacy Policy, please contact us at support@vibeswipe.startupmanch.world.
+If you have questions or comments about this Privacy Policy, please contact us at devesh@startupmanch.world.
     `,
 
   EULA: `
@@ -97,6 +97,6 @@ Under the General Data Protection Regulation (GDPR), you have the following righ
 6.  **Right to Data Portability:** You have the right to request that we transfer the data that we have collected to another organization, or directly to you.
 
 ## How to Exercise Your Rights
-To exercise any of these rights, please use the "Delete Account" button in settings or contact our Data Protection Officer at support@vibeswipe.startupmanch.world.
+To exercise any of these rights, please use the "Delete Account" button in settings or contact our Data Protection Officer at devesh@startupmanch.world.
     `,
 };

@@ -25,7 +25,9 @@
       "predictiveBackGestureEnabled": false,
       "googleServicesFile": "./google-services.json",
       "package": "world.startupmanch.vibeswipe",
-      "permissions": ["android.permission.POST_NOTIFICATIONS"]
+      "permissions": [
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "output": "static",
@@ -37,8 +39,7 @@
         "expo-splash-screen",
         {
           "image": "./assets/images/splashscreen.png",
-          "imageWidth": 280,
-          "resizeMode": "contain",
+          "resizeMode": "cover",
           "backgroundColor": "#FAFAFB",
           "dark": {
             "image": "./assets/images/splashscreen.png",
@@ -63,7 +64,9 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
+      "router": {
+        "origin": "https://so-lace.startupmanch.world"
+      },
       "eas": {
         "projectId": "a474da90-3827-435c-8eb6-798e25f93e1a"
       }

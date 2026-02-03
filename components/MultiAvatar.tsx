@@ -37,7 +37,7 @@ export function MultiAvatar({
   }
 
   // Otherwise generate unique Multiavatar based on user ID
-  const avatarSvg = generateAvatar(userId);
+  const avatarSvg = generateAvatar(userId) || '<svg></svg>';
 
   return (
     <View

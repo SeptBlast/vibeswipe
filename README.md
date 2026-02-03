@@ -250,7 +250,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## 📧 Support
 
-For support, email support@startupmanch.world or open an issue in the repository.
+For support, email devesh@startupmanch.world or open an issue in the repository.
 
 ---
 

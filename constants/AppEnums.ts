@@ -14,8 +14,8 @@ export enum StorageFolders {
 
 export enum AppConfig {
   APP_NAME = "VibeSwipe",
-  SUPPORT_EMAIL = "support@vibeswipe.startupmanch.world",
-  WEBSITE = "https://vibeswipe.startupmanch.world",
+  SUPPORT_EMAIL = "devesh@startupmanch.world",
+  WEBSITE = "https://so-lace.startupmanch.world",
 }
 
 export enum PostType {
