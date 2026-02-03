@@ -16,7 +16,14 @@ import {
   where,
 } from "firebase/firestore";
 import React, { useEffect, useRef, useState } from "react";
-import { Animated, FlatList, Platform, StyleSheet, View } from "react-native";
+import {
+  Alert,
+  Animated,
+  FlatList,
+  Platform,
+  StyleSheet,
+  View,
+} from "react-native";
 import {
   ActivityIndicator,
   Appbar,
@@ -248,8 +255,34 @@ export default function ConnectScreen() {
         potentials.push(doc.data() as UserProfile);
       });
 
+      // Get blocked users
+      const blockedSnapshot = await getDocs(
+        collection(db, "users", user.uid, "blockedUsers"),
+      );
+      const blockedUserIds = blockedSnapshot.docs.map((doc) => doc.id);
+
+      // Get users who blocked current user
+      const allUsersSnapshot = await getDocs(collection(db, "users"));
+      const usersWhoBlockedMe: string[] = [];
+      for (const userDoc of allUsersSnapshot.docs) {
+        if (userDoc.id === user.uid) continue;
+        const blockedByThemDoc = await getDoc(
+          doc(db, "users", userDoc.id, "blockedUsers", user.uid),
+        );
+        if (blockedByThemDoc.exists()) {
+          usersWhoBlockedMe.push(userDoc.id);
+        }
+      }
+
       const myAvg = myStats?.averageMood || 3;
       const filtered = potentials.filter((p) => {
+        // Filter out blocked users and users who blocked current user
+        if (
+          blockedUserIds.includes(p.uid) ||
+          usersWhoBlockedMe.includes(p.uid)
+        ) {
+          return false;
+        }
         const diff = Math.abs(p.averageMood - myAvg);
         return diff <= 1.5;
       });
@@ -296,6 +329,30 @@ export default function ConnectScreen() {
     if (!user) return;
 
     try {
+      // Check if current user has blocked the other user
+      const currentUserBlockedDoc = await getDoc(
+        doc(db, "users", user.uid, "blockedUsers", otherUser.uid),
+      );
+      if (currentUserBlockedDoc.exists()) {
+        Alert.alert(
+          "Cannot Connect",
+          "You have blocked this user. Unblock them to start a conversation.",
+        );
+        return;
+      }
+
+      // Check if the other user has blocked current user
+      const otherUserBlockedDoc = await getDoc(
+        doc(db, "users", otherUser.uid, "blockedUsers", user.uid),
+      );
+      if (otherUserBlockedDoc.exists()) {
+        Alert.alert(
+          "Cannot Connect",
+          "This user is not available for conversations.",
+        );
+        return;
+      }
+
       // Check if a chat already exists between these two users
       const chatsRef = collection(db, "chats");
       const q = query(

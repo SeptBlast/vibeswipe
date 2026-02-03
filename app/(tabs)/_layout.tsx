@@ -2,7 +2,7 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { useTheme } from "react-native-paper";
 
-import { LiquidGlassTabBar } from "@/components/LiquidGlassTabBar";
+import { PlatformTabBar } from "@/components/navigation";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 
 export default function TabLayout() {
@@ -10,7 +10,7 @@ export default function TabLayout() {
 
   return (
     <Tabs
-      tabBar={(props) => <LiquidGlassTabBar {...props} />}
+      tabBar={(props) => <PlatformTabBar {...props} />}
       screenOptions={{
         headerShown: false,
       }}
@@ -52,6 +52,16 @@ export default function TabLayout() {
           tabBarLabel: "Chat",
           tabBarIcon: ({ color }) => (
             <IconSymbol size={24} name="message.fill" color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: "Profile",
+          tabBarLabel: "Profile",
+          tabBarIcon: ({ color }) => (
+            <IconSymbol size={24} name="person.circle.fill" color={color} />
           ),
         }}
       />

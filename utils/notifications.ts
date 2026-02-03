@@ -35,6 +35,18 @@ export async function registerForPushNotificationsAsync(): Promise<
 > {
   let token: string | null = null;
 
+  // Skip push token registration on Android in Expo Go (SDK 53+)
+  // Remote notifications are not supported, but local notifications still work
+  const isExpoGo = Constants.appOwnership === "expo";
+  if (Platform.OS === "android" && isExpoGo) {
+    console.log(
+      "Push notifications not supported in Expo Go on Android. Using local notifications only.",
+    );
+    // Still request permissions for local notifications
+    await Notifications.requestPermissionsAsync();
+    return null;
+  }
+
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
       name: "default",
@@ -83,19 +95,46 @@ export async function scheduleJournalReminder(
 ) {
   await Notifications.cancelAllScheduledNotificationsAsync();
 
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: "Time to reflect 🌙",
-      body: "How are you feeling today? Take a moment to journal your thoughts.",
-      sound: true,
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-      hour,
-      minute,
-      repeats: true,
-    },
-  });
+  if (Platform.OS === "android") {
+    // Android doesn't support CALENDAR trigger, use DAILY instead
+    const now = new Date();
+    const triggerDate = new Date();
+    triggerDate.setHours(hour, minute, 0, 0);
+
+    // If the time has passed today, schedule for tomorrow
+    if (triggerDate <= now) {
+      triggerDate.setDate(triggerDate.getDate() + 1);
+    }
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Time to reflect 🌙",
+        body: "How are you feeling today? Take a moment to journal your thoughts.",
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DAILY,
+        hour,
+        minute,
+        repeats: true,
+      },
+    });
+  } else {
+    // iOS supports CALENDAR trigger
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: "Time to reflect 🌙",
+        body: "How are you feeling today? Take a moment to journal your thoughts.",
+        sound: true,
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+        hour,
+        minute,
+        repeats: true,
+      },
+    });
+  }
 }
 
 /**

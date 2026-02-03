@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
 
   glassBackground: {
     flex: 1,
-    borderRadius: 34,
+    borderRadius: 50,
     borderWidth: 1,
     overflow: "hidden",
   },

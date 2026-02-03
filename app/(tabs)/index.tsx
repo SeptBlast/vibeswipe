@@ -25,12 +25,13 @@ import {
 import React, { useEffect, useState } from "react";
 import {
   FlatList,
+  Image,
   Platform,
   RefreshControl,
   StyleSheet,
   View,
 } from "react-native";
-import { Appbar, IconButton, Text, useTheme } from "react-native-paper";
+import { Appbar, Text, useTheme } from "react-native-paper";
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -293,11 +294,13 @@ export default function WallScreen() {
             elevated
             style={{ backgroundColor: theme.colors.surface }}
           >
-            <Appbar.Content title="Let's Vibe" />
-            <Appbar.Action
-              icon="account-circle"
-              onPress={() => router.push("/profile")}
-            />
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("@/assets/images/logo.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
           </Appbar.Header>
         ) : (
           <BlurView
@@ -308,18 +311,13 @@ export default function WallScreen() {
               { paddingTop: insets.top + liquidGlass.spacing.cozy },
             ]}
           >
-            <Text
-              variant="headlineSmall"
-              style={[styles.headerTitle, { color: theme.colors.onSurface }]}
-            >
-              Let's Vibe
-            </Text>
-            <IconButton
-              icon="account-circle"
-              size={28}
-              iconColor={theme.colors.onSurface}
-              onPress={() => router.push("/profile")}
-            />
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("@/assets/images/logo.png")}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+            </View>
           </BlurView>
         )}
 
@@ -382,7 +380,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: liquidGlass.spacing.comfortable,
     paddingVertical: liquidGlass.spacing.cozy,
@@ -393,6 +391,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontWeight: "600",
     letterSpacing: 0.5,
+  },
+  logoContainer: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  logo: {
+    height: 50,
+    width: 120,
   },
   emptyState: {
     paddingVertical: liquidGlass.spacing.breathe * 3,

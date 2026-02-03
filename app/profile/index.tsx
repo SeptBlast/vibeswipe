@@ -87,6 +87,14 @@ export default function ProfileScreen() {
     router.replace("/login");
   };
 
+  const handleBackPress = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.push("/(tabs)");
+    }
+  };
+
   return (
     <View
       style={[styles.container, { backgroundColor: theme.colors.background }]}
@@ -95,7 +103,7 @@ export default function ProfileScreen() {
       <SafeAreaView style={styles.container} edges={["top"]}>
         {Platform.OS === "android" ? (
           <Appbar.Header elevated>
-            <Appbar.BackAction onPress={() => router.back()} />
+            <Appbar.BackAction onPress={handleBackPress} />
             <Appbar.Content title="Your Space" />
           </Appbar.Header>
         ) : (
@@ -110,7 +118,7 @@ export default function ProfileScreen() {
             <IconButton
               icon="arrow-left"
               size={24}
-              onPress={() => router.back()}
+              onPress={handleBackPress}
               iconColor={theme.colors.onSurface}
             />
             <Text

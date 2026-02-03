@@ -3,7 +3,7 @@ import { db } from "@/configs/firebaseConfig";
 import { CollectionNames } from "@/constants/AppEnums";
 import { liquidGlass } from "@/constants/theme";
 import { Comment, EmotionType, Post } from "@/types/feed";
-import { REPORT_REASON_LABELS, ReportReason } from "@/types/moderation";
+import { ReportReason } from "@/types/moderation";
 import { Filter } from "bad-words";
 import { formatDistanceToNow } from "date-fns";
 import { Image } from "expo-image";
@@ -28,14 +28,14 @@ import {
   Avatar,
   Button,
   Chip,
-  Dialog,
   IconButton,
   Menu,
-  Portal,
-  RadioButton,
   Text,
   useTheme,
 } from "react-native-paper";
+import BlockUserBottomSheet from "./bottomsheets/BlockUserBottomSheet";
+import EditPostBottomSheet from "./bottomsheets/EditPostBottomSheet";
+import ReportBottomSheet from "./bottomsheets/ReportBottomSheet";
 import GlassCard from "./ui/GlassCard";
 
 const EMOTIONS: {
@@ -97,13 +97,9 @@ export default function PostCard({
   const [userAlias, setUserAlias] = useState<string>("Vibe User");
   const [userPhotoURL, setUserPhotoURL] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [reportDialogVisible, setReportDialogVisible] = useState(false);
-  const [editDialogVisible, setEditDialogVisible] = useState(false);
-  const [editedContent, setEditedContent] = useState("");
-  const [isEditingSaving, setIsEditingSaving] = useState(false);
-  const [selectedReportReason, setSelectedReportReason] =
-    useState<ReportReason>("harassment");
-  const [reportDescription, setReportDescription] = useState("");
+  const [reportSheetVisible, setReportSheetVisible] = useState(false);
+  const [blockSheetVisible, setBlockSheetVisible] = useState(false);
+  const [editSheetVisible, setEditSheetVisible] = useState(false);
 
   // Fetch user's anonymousAlias and photoURL
   useEffect(() => {
@@ -223,7 +219,7 @@ export default function PostCard({
     }).start();
   };
 
-  const handleReport = async () => {
+  const handleReport = async (reason: ReportReason, description: string) => {
     if (!currentUserId) return;
 
     try {
@@ -232,84 +228,62 @@ export default function PostCard({
         contentId: post.id,
         contentType: "post",
         contentOwnerId: post.userId,
-        reason: selectedReportReason,
-        description: reportDescription,
+        reason: reason,
+        description: description,
         status: "pending",
         createdAt: Date.now(),
       });
 
-      setReportDialogVisible(false);
-      setReportDescription("");
-      Alert.alert(
-        "Report Submitted",
-        "Thank you for helping keep VibeSwipe safe. We will review this content within 24 hours.",
-      );
+      setReportSheetVisible(false);
     } catch (error) {
       console.error("Error submitting report:", error);
       Alert.alert("Error", "Failed to submit report. Please try again.");
     }
   };
 
-  const handleBlockUser = async () => {
+  const handleBlockUser = async (reason: string) => {
     if (!currentUserId || currentUserId === post.userId) return;
 
-    Alert.alert(
-      "Block User",
-      `Are you sure you want to block ${userAlias}? You will no longer see their posts and they cannot contact you.`,
-      [
-        { text: "Cancel", style: "cancel" },
+    try {
+      await setDoc(
+        doc(
+          db,
+          CollectionNames.USERS,
+          currentUserId,
+          "blockedUsers",
+          post.userId,
+        ),
         {
-          text: "Block",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await setDoc(
-                doc(
-                  db,
-                  CollectionNames.USERS,
-                  currentUserId,
-                  "blockedUsers",
-                  post.userId,
-                ),
-                {
-                  blockedUserId: post.userId,
-                  blockedAt: Date.now(),
-                  reason: "Blocked from post",
-                },
-              );
-
-              // Also report the user
-              await addDoc(collection(db, "reports"), {
-                reporterId: currentUserId,
-                contentId: post.id,
-                contentType: "post",
-                contentOwnerId: post.userId,
-                reason: "harassment",
-                description: "User blocked",
-                status: "pending",
-                createdAt: Date.now(),
-              });
-
-              Alert.alert(
-                "User Blocked",
-                "You will no longer see content from this user.",
-              );
-            } catch (error) {
-              console.error("Error blocking user:", error);
-              Alert.alert("Error", "Failed to block user. Please try again.");
-            }
-          },
+          blockedUserId: post.userId,
+          blockedAt: Date.now(),
+          reason: reason,
         },
-      ],
-    );
+      );
+
+      // Also report the user
+      await addDoc(collection(db, "reports"), {
+        reporterId: currentUserId,
+        contentId: post.id,
+        contentType: "post",
+        contentOwnerId: post.userId,
+        reason: "harassment",
+        description: `User blocked: ${reason}`,
+        status: "pending",
+        createdAt: Date.now(),
+      });
+
+      setBlockSheetVisible(false);
+    } catch (error) {
+      console.error("Error blocking user:", error);
+      Alert.alert("Error", "Failed to block user. Please try again.");
+    }
   };
 
   const handleEditPost = () => {
-    setEditedContent(post.content);
-    setEditDialogVisible(true);
+    setEditSheetVisible(true);
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = async (editedContent: string) => {
     if (!editedContent.trim()) {
       Alert.alert("Error", "Post content cannot be empty.");
       return;
@@ -325,20 +299,18 @@ export default function PostCard({
       return;
     }
 
-    setIsEditingSaving(true);
     try {
       await updateDoc(doc(db, CollectionNames.POSTS, post.id), {
         content: editedContent.trim(),
         updatedAt: Date.now(),
       });
 
-      setEditDialogVisible(false);
+      setEditSheetVisible(false);
       Alert.alert("Success", "Your post has been updated.");
     } catch (error) {
       console.error("Error updating post:", error);
       Alert.alert("Error", "Failed to update post. Please try again.");
-    } finally {
-      setIsEditingSaving(false);
+      throw error;
     }
   };
 
@@ -417,7 +389,7 @@ export default function PostCard({
                       <Menu.Item
                         onPress={() => {
                           setMenuVisible(false);
-                          setReportDialogVisible(true);
+                          setReportSheetVisible(true);
                         }}
                         title="Report Post"
                         leadingIcon="flag"
@@ -425,7 +397,7 @@ export default function PostCard({
                       <Menu.Item
                         onPress={() => {
                           setMenuVisible(false);
-                          handleBlockUser();
+                          setBlockSheetVisible(true);
                         }}
                         title="Block User"
                         leadingIcon="cancel"
@@ -720,106 +692,27 @@ export default function PostCard({
           </GlassCard>
         </Pressable>
 
-        {/* Edit Dialog */}
-        <Portal>
-          <Dialog
-            visible={editDialogVisible}
-            onDismiss={() => setEditDialogVisible(false)}
-          >
-            <Dialog.Title>Edit Post</Dialog.Title>
-            <Dialog.Content>
-              <TextInput
-                style={[
-                  styles.editInput,
-                  {
-                    backgroundColor: theme.colors.surfaceVariant,
-                    color: theme.colors.onSurface,
-                  },
-                ]}
-                placeholder="What's on your mind?"
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                value={editedContent}
-                onChangeText={setEditedContent}
-                multiline
-                maxLength={1000}
-                autoFocus
-              />
-              <Text
-                variant="bodySmall"
-                style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}
-              >
-                {editedContent.length}/1000 characters
-              </Text>
-            </Dialog.Content>
-            <Dialog.Actions>
-              <Button
-                onPress={() => setEditDialogVisible(false)}
-                disabled={isEditingSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                onPress={handleSaveEdit}
-                disabled={isEditingSaving || !editedContent.trim()}
-                loading={isEditingSaving}
-              >
-                Save
-              </Button>
-            </Dialog.Actions>
-          </Dialog>
-        </Portal>
+        {/* Bottom Sheets */}
+        <EditPostBottomSheet
+          visible={editSheetVisible}
+          onDismiss={() => setEditSheetVisible(false)}
+          onSave={handleSaveEdit}
+          initialContent={post.content}
+        />
 
-        {/* Report Dialog */}
-        <Portal>
-          <Dialog
-            visible={reportDialogVisible}
-            onDismiss={() => setReportDialogVisible(false)}
-          >
-            <Dialog.Title>Report Post</Dialog.Title>
-            <Dialog.Content>
-              <Text variant="bodyMedium" style={{ marginBottom: 16 }}>
-                Why are you reporting this content?
-              </Text>
-              <RadioButton.Group
-                onValueChange={(value) =>
-                  setSelectedReportReason(value as ReportReason)
-                }
-                value={selectedReportReason}
-              >
-                {(Object.keys(REPORT_REASON_LABELS) as ReportReason[]).map(
-                  (reason) => (
-                    <RadioButton.Item
-                      key={reason}
-                      label={REPORT_REASON_LABELS[reason]}
-                      value={reason}
-                    />
-                  ),
-                )}
-              </RadioButton.Group>
-              <TextInput
-                style={[
-                  styles.reportInput,
-                  {
-                    backgroundColor: theme.colors.surfaceVariant,
-                    color: theme.colors.onSurface,
-                  },
-                ]}
-                placeholder="Additional details (optional)"
-                placeholderTextColor={theme.colors.onSurfaceVariant}
-                value={reportDescription}
-                onChangeText={setReportDescription}
-                multiline
-                maxLength={500}
-              />
-            </Dialog.Content>
-            <Dialog.Actions>
-              <Button onPress={() => setReportDialogVisible(false)}>
-                Cancel
-              </Button>
-              <Button onPress={handleReport}>Submit Report</Button>
-            </Dialog.Actions>
-          </Dialog>
-        </Portal>
+        <ReportBottomSheet
+          visible={reportSheetVisible}
+          onDismiss={() => setReportSheetVisible(false)}
+          onSubmit={handleReport}
+          contentType="post"
+        />
+
+        <BlockUserBottomSheet
+          visible={blockSheetVisible}
+          onDismiss={() => setBlockSheetVisible(false)}
+          onConfirm={handleBlockUser}
+          userName={userAlias}
+        />
       </Animated.View>
     );
   } catch (error) {

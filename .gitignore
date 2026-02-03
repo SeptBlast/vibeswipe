@@ -48,3 +48,5 @@ app-example
 # generated native folders
 /ios
 /android
+**/vibeswipe-44848-0fb4a39208b5.json
+**/vibeswipe-44848-ce5e2a881403.p12
